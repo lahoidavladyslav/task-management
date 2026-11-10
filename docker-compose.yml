@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-taskmanager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskmanager}
+      POSTGRES_DB: ${POSTGRES_DB:-taskmanager}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      target: runtime
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-taskmanager}:${POSTGRES_PASSWORD:-taskmanager}@db:5432/${POSTGRES_DB:-taskmanager}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production-please}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      MAX_ACTIVE_TASKS_PER_USER: ${MAX_ACTIVE_TASKS_PER_USER:-10}
+      OVERDUE_WORKER_ENABLED: ${OVERDUE_WORKER_ENABLED:-true}
+      DOCS_ENABLED: ${DOCS_ENABLED:-true}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      AUTH_RATE_LIMIT_ATTEMPTS: ${AUTH_RATE_LIMIT_ATTEMPTS:-60}
+      AUTH_RATE_LIMIT_WINDOW_SECONDS: ${AUTH_RATE_LIMIT_WINDOW_SECONDS:-60}
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
+      OVERDUE_CHECK_INTERVAL_SECONDS: ${OVERDUE_CHECK_INTERVAL_SECONDS:-60}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+  tests:
+    build:
+      context: .
+      target: dev
+    profiles: ["test"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-taskmanager}:${POSTGRES_PASSWORD:-taskmanager}@db:5432/${POSTGRES_DB:-taskmanager}
+      SECRET_KEY: test-secret-key-do-not-use-in-production
+    command: pytest -v
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
