@@ -21,9 +21,9 @@ class CommentService:
         await self._session.commit()
         return comment
 
-    async def list_for_task(self, task_id: int, pagination: Pagination) -> tuple[list[Comment], int]:
-        await self._ensure_task_exists(task_id)
-        return await self._comments.list_for_task(task_id, pagination)
+    async def list_for_task(
+        self, task_id: int, pagination: Pagination
+    ) -> tuple[list[Comment], int]:
 
     async def _ensure_task_exists(self, task_id: int) -> None:
         if not await self._tasks.exists(task_id):
