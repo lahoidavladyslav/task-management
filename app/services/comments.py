@@ -24,6 +24,8 @@ class CommentService:
     async def list_for_task(
         self, task_id: int, pagination: Pagination
     ) -> tuple[list[Comment], int]:
+        await self._ensure_task_exists(task_id)
+        return await self._comments.list_for_task(task_id, pagination)
 
     async def _ensure_task_exists(self, task_id: int) -> None:
         if not await self._tasks.exists(task_id):
